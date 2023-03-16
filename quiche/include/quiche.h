@@ -260,6 +260,13 @@ quiche_conn *quiche_connect(const char *server_name,
                             const struct sockaddr *peer, size_t peer_len,
                             quiche_config *config);
 
+// Creates a new client-side connection.
+quiche_conn *quiche_connect2(const char *server_name,
+                            const uint8_t *scid, size_t scid_len,
+                            const uint8_t *local, size_t local_len,
+                            const uint8_t *peer, size_t peer_len,
+                            quiche_config *config);
+
 // Writes a version negotiation packet.
 ssize_t quiche_negotiate_version(const uint8_t *scid, size_t scid_len,
                                  const uint8_t *dcid, size_t dcid_len,
