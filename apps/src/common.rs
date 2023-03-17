@@ -1494,6 +1494,18 @@ impl HttpConn for Http3Conn {
                     );
                 },
 
+                Ok((
+                       stream_id,
+                       quiche::h3::Event::WebTransportStreamData(session_id),
+                   )) => {
+                    info!(
+                        "{} PRIORITY_UPDATE triggered for element ID={} SESSION={}",
+                        conn.trace_id(),
+                        stream_id,
+                        session_id
+                    );
+                },
+
                 Ok((goaway_id, quiche::h3::Event::GoAway)) => {
                     info!(
                         "{} got GOAWAY with ID {} ",
@@ -1707,6 +1719,18 @@ impl HttpConn for Http3Conn {
                         "{} PRIORITY_UPDATE triggered for element ID={}",
                         conn.trace_id(),
                         prioritized_element_id
+                    );
+                },
+
+                Ok((
+                       stream_id,
+                       quiche::h3::Event::WebTransportStreamData(session_id),
+                   )) => {
+                    info!(
+                        "{} PRIORITY_UPDATE triggered for element ID={} SESSION={}",
+                        conn.trace_id(),
+                        stream_id,
+                        session_id
                     );
                 },
 
