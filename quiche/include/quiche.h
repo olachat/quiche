@@ -319,6 +319,9 @@ typedef struct {
 // Processes QUIC packets received from the peer.
 ssize_t quiche_conn_recv(quiche_conn *conn, uint8_t *buf, size_t buf_len,
                          const quiche_recv_info *info);
+ssize_t quiche_conn_recv2(quiche_conn *conn, uint8_t *buf, size_t buf_len,
+                          const uint8_t *local, size_t local_len,
+                          const uint8_t *peer, size_t peer_len);
 
 typedef struct {
     // The local address the packet should be sent from.
@@ -336,6 +339,19 @@ typedef struct {
 // Writes a single QUIC packet to be sent to the peer.
 ssize_t quiche_conn_send(quiche_conn *conn, uint8_t *out, size_t out_len,
                          quiche_send_info *out_info);
+
+typedef struct {
+    // The local address the packet should be sent from.
+    const uint8_t *from;
+    size_t from_len;
+
+    // The remote address the packet should be sent to.
+    const uint8_t *to;
+    size_t to_len;
+} quiche_send_info2;
+// Writes a single QUIC packet to be sent to the peer.
+ssize_t quiche_conn_send2(quiche_conn *conn, uint8_t *out, size_t out_len,
+                         quiche_send_info2 *out_info);
 
 // Returns the size of the send quantum, in bytes.
 size_t quiche_conn_send_quantum(const quiche_conn *conn);
