@@ -1056,6 +1056,70 @@ enum quiche_h3_webtransport_serverevent_type quiche_h3_webtransport_serverevent_
 void quiche_h3_webtransport_serverevent_free(quiche_h3_webtransport_serverevent_event *ev);
 
 
+typedef struct ClietSession client_session;
+
+client_session *quiche_h3_webtransport_clientsession_with_transport(quiche_conn *quiche_conn);
+
+void quiche_h3_webtransport_clientsession_free(client_session *session);
+
+void quiche_h3_webtransport_clientsession_accept_connect_request(client_session *session);
+
+ssize_t quiche_h3_webtransport_clientsession_recv_stream_data( client_session *session,
+                                                               quiche_conn *conn,
+                                                               uint64_t stream_id,
+                                                               uint8_t *out, size_t out_len);
+
+ssize_t quiche_h3_webtransport_clientsession_send_stream_data( client_session *session,
+                                                               quiche_conn *conn,
+                                                               uint64_t stream_id,
+                                                               uint8_t *out, size_t out_len);
+
+int64_t quiche_h3_webtransport_clientsession_open_stream( client_session *session,
+                                                          quiche_conn *conn,
+                                                          bool is_bidi);
+
+ssize_t quiche_h3_webtransport_clientsession_recv_dgram( client_session *session,
+                                                         quiche_conn *conn,
+                                                         uint8_t *out, size_t out_len,
+                                                         bool *is_session, ssize_t *offset);
+
+void quiche_h3_webtransport_clientsession_send_dgram( client_session *session,
+                                                      quiche_conn *conn,
+                                                      uint8_t *out, size_t out_len);
+
+enum quiche_h3_webtransport_clientevent_type {
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_CONNECTREQUEST,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_STREAMDATA,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_STREAMFINISHED,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_DATAGRAM,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONFINISHED,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONRESET,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONGOAWAY,
+    QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_OTHER,
+};
+
+typedef struct {
+    char* authority;
+    char* path;
+    char* origin;
+} connection_request;
+
+typedef struct ClientEvent quiche_h3_webtransport_clientevent_event;
+
+int64_t quiche_h3_webtransport_clientsession_poll( client_session *session,
+                                                   quiche_conn *conn,
+                                                   quiche_h3_webtransport_serverevent_event **ev);
+
+
+// Returns the type of the event.
+int quiche_h3_webtransport_clientevent_event(quiche_h3_webtransport_serverevent_event *ev, uint64_t *, connection_request *);
+
+
+
+// Frees the HTTP/3 event object.
+void quiche_h3_webtransport_serverevent_event_free(quiche_h3_webtransport_serverevent_event *ev);
+
+
 #if defined(__cplusplus)
 }  // extern C
 #endif
