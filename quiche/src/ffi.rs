@@ -25,6 +25,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use std::ffi;
+use std::ffi::CStr;
 use std::ptr;
 use std::slice;
 use std::sync::atomic;
@@ -504,6 +505,32 @@ pub extern fn quiche_connect(
 }
 
 #[no_mangle]
+pub extern fn quiche_connect2(
+    server_name: *const c_char, scid: *const u8, scid_len: size_t,
+    local: *const c_char, local_len: size_t, peer: *const c_char, peer_len: size_t,
+    config: &mut Config,
+) -> *mut Connection {
+    let server_name = if server_name.is_null() {
+        None
+    } else {
+        Some(unsafe { ffi::CStr::from_ptr(server_name).to_str().unwrap() })
+    };
+
+    let scid = unsafe { slice::from_raw_parts(scid, scid_len) };
+    let scid = ConnectionId::from_ref(scid);
+
+    let local_addr = std_addr_from_str(local, local_len);
+    let peer_addr = std_addr_from_str(peer, peer_len);
+
+    match connect(server_name, &scid, local_addr, peer_addr, config) {
+        Ok(c) => Box::into_raw(Box::new(c)),
+
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+
+#[no_mangle]
 pub extern fn quiche_negotiate_version(
     scid: *const u8, scid_len: size_t, dcid: *const u8, dcid_len: size_t,
     out: *mut u8, out_len: size_t,
@@ -718,6 +745,32 @@ pub extern fn quiche_conn_recv(
     }
 }
 
+#[no_mangle]
+pub extern fn quiche_conn_recv2(
+    conn: &mut Connection, buf: *mut u8, buf_len: size_t, local: *const c_char, local_len: size_t, peer: *const c_char, peer_len: size_t,
+) -> ssize_t {
+    if buf_len > <ssize_t>::max_value() as usize {
+        panic!("The provided buffer is too large");
+    }
+
+    let local_addr = std_addr_from_str(local, local_len);
+    let peer_addr = std_addr_from_str(peer, peer_len);
+
+    let recv_info = crate::RecvInfo {
+        to: local_addr,
+        from: peer_addr,
+    };
+
+
+    let buf = unsafe { slice::from_raw_parts_mut(buf, buf_len) };
+
+    match conn.recv(buf, recv_info) {
+        Ok(v) => v as ssize_t,
+
+        Err(e) => e.to_c(),
+    }
+}
+
 #[repr(C)]
 pub struct SendInfo {
     from: sockaddr_storage,
@@ -745,6 +798,35 @@ pub extern fn quiche_conn_send(
 
             std_time_to_c(&info.at, &mut out_info.at);
 
+            v as ssize_t
+        },
+
+        Err(e) => e.to_c(),
+    }
+}
+
+#[repr(C)]
+pub struct SendInfo2 {
+    from: *mut u8,
+    from_len: usize,
+
+    to: *mut u8,
+    to_len: usize,
+}
+
+#[no_mangle]
+pub extern fn quiche_conn_send2(
+    conn: &mut Connection, out: *mut u8, out_len: size_t, _out_info: &mut SendInfo2,
+) -> ssize_t {
+    if out_len > <ssize_t>::max_value() as usize {
+        panic!("The provided buffer is too large");
+    }
+
+    let out = unsafe { slice::from_raw_parts_mut(out, out_len) };
+
+    match conn.send(out) {
+        Ok((v, info)) => {
+            println!("from::::{} to:::{}", info.from.to_string(), info.to.to_string());
             v as ssize_t
         },
 
@@ -1335,6 +1417,18 @@ pub extern fn quiche_conn_peer_streams_left_uni(conn: &Connection) -> u64 {
 #[no_mangle]
 pub extern fn quiche_conn_send_quantum(conn: &Connection) -> size_t {
     conn.send_quantum() as size_t
+}
+
+fn std_addr_from_str(addr: *const c_char, _addr_len: size_t) -> SocketAddr {
+    // Convert the address pointer to a C string
+    let c_str = unsafe { CStr::from_ptr(addr) };
+
+    // Convert the C string to a Rust string
+    let str_addr = c_str.to_str().unwrap();
+    println!("str_addr is {}", str_addr);
+
+    // Parse the string as an SocketAddr address
+    return str_addr.parse::<SocketAddr>().unwrap();
 }
 
 fn std_addr_from_c(addr: &sockaddr, addr_len: socklen_t) -> SocketAddr {
