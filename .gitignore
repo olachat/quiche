@@ -4,3 +4,4 @@
 **/*.*qlog
 **/build
 **/*.dSYM
+/.idea

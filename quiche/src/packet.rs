@@ -560,6 +560,8 @@ pub fn pkt_num_len(pn: u64) -> Result<usize> {
         1
     } else if pn < u64::from(u16::MAX) {
         2
+    } else if pn < 16_777_215u64 {
+        3
     } else if pn < u64::from(u32::MAX) {
         4
     } else {
@@ -859,6 +861,22 @@ fn compute_retry_integrity_tag(
         .map_err(|_| Error::CryptoFail)
 }
 
+pub struct KeyUpdate {
+    /// 1-RTT key used prior to a key update.
+    pub crypto_open: crypto::Open,
+
+    /// The packet number triggered the latest key-update.
+    ///
+    /// Incoming packets with lower pn should use this (prev) crypto key.
+    pub pn_on_update: u64,
+
+    /// Whether ACK frame for key-update has been sent.
+    pub update_acked: bool,
+
+    /// When the old key should be discarded.
+    pub timer: time::Instant,
+}
+
 pub struct PktNumSpace {
     pub largest_rx_pkt_num: u64,
 
@@ -873,6 +891,8 @@ pub struct PktNumSpace {
     pub recv_pkt_num: PktNumWindow,
 
     pub ack_elicited: bool,
+
+    pub key_update: Option<KeyUpdate>,
 
     pub crypto_open: Option<crypto::Open>,
     pub crypto_seal: Option<crypto::Seal>,
@@ -899,6 +919,8 @@ impl PktNumSpace {
             recv_pkt_num: PktNumWindow::default(),
 
             ack_elicited: false,
+
+            key_update: None,
 
             crypto_open: None,
             crypto_seal: None,

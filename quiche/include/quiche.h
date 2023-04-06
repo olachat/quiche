@@ -115,6 +115,15 @@ enum quiche_error {
 
     // Error in congestion control.
     QUICHE_ERR_CONGESTION_CONTROL = -14,
+
+    // Too many identifiers were provided.
+    QUICHE_ERR_ID_LIMIT = -17,
+
+    // Not enough available identifiers.
+    QUICHE_ERR_OUT_OF_IDENTIFIERS = -18,
+
+    // Error in key update.
+    QUICHE_ERR_KEY_UPDATE = -19,
 };
 
 // Returns a human readable string with the quiche version number.
@@ -317,7 +326,7 @@ typedef struct {
 } quiche_recv_info;
 
 // Processes QUIC packets received from the peer.
-ssize_t quiche_conn_recv(quiche_conn *conn, uint8_t *buf, size_t buf_len,
+ssize_t quiche_conn_recv(quiche_conn *conn, const uint8_t *buf, size_t buf_len,
                          const quiche_recv_info *info);
 ssize_t quiche_conn_recv2(quiche_conn *conn, uint8_t *buf, size_t buf_len,
                           const uint8_t *local, size_t local_len,
@@ -802,6 +811,15 @@ enum quiche_h3_error {
 
     // See QUICHE_ERR_CONGESTION_CONTROL.
     QUICHE_H3_TRANSPORT_ERR_CONGESTION_CONTROL = QUICHE_ERR_CONGESTION_CONTROL - 1000,
+
+    // See QUICHE_ERR_ID_LIMIT.
+    QUICHE_H3_TRANSPORT_ERR_ID_LIMIT = QUICHE_ERR_ID_LIMIT - 1000,
+
+    // See QUICHE_ERR_OUT_OF_IDENTIFIERS.
+    QUICHE_H3_TRANSPORT_ERR_OUT_OF_IDENTIFIERS = QUICHE_ERR_OUT_OF_IDENTIFIERS - 1000,
+
+    // See QUICHE_ERR_KEY_UPDATE.
+    QUICHE_H3_TRANSPORT_ERR_KEY_UPDATE = QUICHE_ERR_KEY_UPDATE - 1000,
 };
 
 // Stores configuration shared between multiple connections.
@@ -964,6 +982,73 @@ ssize_t quiche_h3_recv_dgram(quiche_h3_conn *conn, quiche_conn *quic_conn,
 
 // Frees the HTTP/3 connection object.
 void quiche_h3_conn_free(quiche_h3_conn *conn);
+
+
+
+// Web Transport.
+typedef struct ServerSession server_session;
+
+server_session *quiche_h3_webtransport_serversession_with_transport(quiche_conn *quiche_conn);
+
+void quiche_h3_webtransport_serversession_free(server_session *session);
+
+void quiche_h3_webtransport_serversession_accept_connect_request(server_session *session);
+
+ssize_t quiche_h3_webtransport_serversession_recv_stream_data( server_session *session,
+                                                               quiche_conn *conn,
+                                                               uint64_t stream_id,
+                                                               uint8_t *out, size_t out_len);
+
+ssize_t quiche_h3_webtransport_serversession_send_stream_data( server_session *session,
+                                                               quiche_conn *conn,
+                                                               uint64_t stream_id,
+                                                               uint8_t *out, size_t out_len);
+
+int64_t quiche_h3_webtransport_serversession_open_stream( server_session *session,
+                                                          quiche_conn *conn,
+                                                          bool is_bidi);
+
+ssize_t quiche_h3_webtransport_serversession_recv_dgram( server_session *session,
+                                                         quiche_conn *conn,
+                                                         uint8_t *out, size_t out_len,
+                                                         bool *is_session, ssize_t *offset);
+
+void quiche_h3_webtransport_serversession_send_dgram( server_session *session,
+                                                      quiche_conn *conn,
+                                                      uint8_t *out, size_t out_len);
+
+enum quiche_h3_webtransport_serverevent_type {
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_CONNECTREQUEST,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_STREAMDATA,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_STREAMFINISHED,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_DATAGRAM,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_SESSIONFINISHED,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_SESSIONRESET,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_SESSIONGOAWAY,
+    QUICHE_H3_WEBTRANSPORT_SERVEREVENT_OTHER,
+};
+
+typedef struct {
+    char* authority;
+    char* path;
+    char* origin;
+} connection_request;
+
+typedef struct ServerEvent quiche_h3_webtransport_serverevent_event;
+
+int64_t quiche_h3_webtransport_serversession_poll( server_session *session,
+                                                   quiche_conn *conn,
+                                                   quiche_h3_webtransport_serverevent_event **ev);
+
+
+// Returns the type of the event.
+enum quiche_h3_webtransport_serverevent_type quiche_h3_webtransport_serverevent_type(quiche_h3_webtransport_serverevent_event *ev, uint64_t *, connection_request *);
+
+
+
+// Frees the HTTP/3 event object.
+void quiche_h3_webtransport_serverevent_event_free(quiche_h3_webtransport_serverevent_event *ev);
+
 
 #if defined(__cplusplus)
 }  // extern C
