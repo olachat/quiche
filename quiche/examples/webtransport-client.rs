@@ -144,8 +144,6 @@ fn main() {
         path.push_str(query);
     }
 
-    let mut req_sent = false;
-
     loop {
         poll.poll(&mut events, conn.timeout()).unwrap();
 
@@ -211,21 +209,6 @@ fn main() {
                 ClientSession::with_transport(&mut conn)
                     .expect("unable to create client session"),
             );
-        }
-
-        // Send WebTransport requests once the QUIC connection is established, and until
-        // all requests have been sent.
-        if let Some(client_session) = &mut client_session {
-            if !req_sent {
-                match client_session.send_connect_request(
-                    &mut conn, authority, path.as_bytes(), authority, None,
-                ){
-                    Ok(stream_id) => stream_id,
-                    Err(_) => 0,
-                };
-
-                req_sent = true;
-            }
         }
 
         if let Some(client_session) = &mut client_session {
