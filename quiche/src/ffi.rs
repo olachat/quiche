@@ -336,6 +336,11 @@ pub extern fn quiche_config_enable_pacing(config: &mut Config, v: bool) {
 }
 
 #[no_mangle]
+pub extern fn quiche_config_set_max_pacing_rate(config: &mut Config, v: u64) {
+    config.set_max_pacing_rate(v);
+}
+
+#[no_mangle]
 pub extern fn quiche_config_enable_dgram(
     config: &mut Config, enabled: bool, recv_queue_len: size_t,
     send_queue_len: size_t,
@@ -1286,6 +1291,11 @@ pub extern fn quiche_conn_path_stats(
     out.delivery_rate = stats.delivery_rate;
 
     0
+}
+
+#[no_mangle]
+pub extern fn quiche_conn_is_server(conn: &Connection) -> bool {
+    conn.is_server()
 }
 
 #[no_mangle]
