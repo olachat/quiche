@@ -992,34 +992,34 @@ void quiche_h3_conn_free(quiche_h3_conn *conn);
 
 
 // Web Transport.
-typedef struct ServerSession server_session;
+typedef struct ServerSession quiche_wt_server_session;
 
-server_session *quiche_h3_webtransport_serversession_with_transport(quiche_conn *quiche_conn);
+quiche_wt_server_session *quiche_h3_webtransport_serversession_with_transport(quiche_conn *quiche_conn);
 
-void quiche_h3_webtransport_serversession_free(server_session *session);
+void quiche_h3_webtransport_serversession_free(quiche_wt_server_session *session);
 
-void quiche_h3_webtransport_serversession_accept_connect_request(server_session *session);
+void quiche_h3_webtransport_serversession_accept_connect_request(quiche_wt_server_session *session);
 
-ssize_t quiche_h3_webtransport_serversession_recv_stream_data( server_session *session,
+ssize_t quiche_h3_webtransport_serversession_recv_stream_data( quiche_wt_server_session *session,
                                                                quiche_conn *conn,
                                                                uint64_t stream_id,
                                                                uint8_t *out, size_t out_len);
 
-ssize_t quiche_h3_webtransport_serversession_send_stream_data( server_session *session,
+ssize_t quiche_h3_webtransport_serversession_send_stream_data( quiche_wt_server_session *session,
                                                                quiche_conn *conn,
                                                                uint64_t stream_id,
                                                                uint8_t *out, size_t out_len);
 
-int64_t quiche_h3_webtransport_serversession_open_stream( server_session *session,
+int64_t quiche_h3_webtransport_serversession_open_stream( quiche_wt_server_session *session,
                                                           quiche_conn *conn,
                                                           bool is_bidi);
 
-ssize_t quiche_h3_webtransport_serversession_recv_dgram( server_session *session,
+ssize_t quiche_h3_webtransport_serversession_recv_dgram( quiche_wt_server_session *session,
                                                          quiche_conn *conn,
                                                          uint8_t *out, size_t out_len,
                                                          bool *is_session, ssize_t *offset);
 
-void quiche_h3_webtransport_serversession_send_dgram( server_session *session,
+void quiche_h3_webtransport_serversession_send_dgram( quiche_wt_server_session *session,
                                                       quiche_conn *conn,
                                                       uint8_t *out, size_t out_len);
 
@@ -1042,7 +1042,7 @@ typedef struct {
 
 typedef struct ServerEvent quiche_h3_webtransport_serverevent_event;
 
-int64_t quiche_h3_webtransport_serversession_poll( server_session *session,
+int64_t quiche_h3_webtransport_serversession_poll( quiche_wt_server_session *session,
                                                    quiche_conn *conn,
                                                    quiche_h3_webtransport_serverevent_event **ev);
 
