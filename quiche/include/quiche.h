@@ -1053,7 +1053,7 @@ enum quiche_h3_webtransport_serverevent_type quiche_h3_webtransport_serverevent_
 
 
 // Frees the HTTP/3 event object.
-void quiche_h3_webtransport_serverevent_event_free(quiche_h3_webtransport_serverevent_event *ev);
+void quiche_h3_webtransport_serverevent_free(quiche_h3_webtransport_serverevent_event *ev);
 
 
 #if defined(__cplusplus)

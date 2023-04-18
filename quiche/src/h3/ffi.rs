@@ -573,15 +573,18 @@ pub struct ConnectRequest {
 #[no_mangle]
 pub extern fn quiche_h3_webtransport_serverevent_type(ev: &h3::webtransport::ServerEvent,
                                                        stream_id:  *mut u64,
-                                                       connect_request: &mut ConnectRequest,
+                                                       connect_request: Option<&mut ConnectRequest>,
 ) -> u32 {
 
     match ev {
 
         h3::webtransport::ServerEvent::ConnectRequest(req) => {
-            connect_request.authority = req.authority().as_ptr();
-            connect_request.path = req.path().as_ptr();
-            connect_request.origin = req.origin().as_ptr();
+            if !connect_request.is_none() {
+                let request = connect_request.unwrap();
+                request.authority = req.authority().as_ptr();
+                request.path = req.path().as_ptr();
+                request.origin = req.origin().as_ptr();
+            }
 
             return 0;
         },
@@ -610,6 +613,6 @@ pub extern fn quiche_h3_webtransport_serverevent_type(ev: &h3::webtransport::Ser
 }
 
 #[no_mangle]
-pub extern fn quiche_h3_webtransport_serversevent_free(ev: *mut h3::webtransport::ServerEvent) {
+pub extern fn quiche_h3_webtransport_serverevent_free(ev: *mut h3::webtransport::ServerEvent) {
     unsafe { Box::from_raw(ev) };
 }
