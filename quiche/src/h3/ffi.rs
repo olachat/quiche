@@ -616,3 +616,191 @@ pub extern fn quiche_h3_webtransport_serverevent_type(ev: &h3::webtransport::Ser
 pub extern fn quiche_h3_webtransport_serverevent_free(ev: *mut h3::webtransport::ServerEvent) {
     unsafe { Box::from_raw(ev) };
 }
+
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_with_transport(
+    quic_conn: &mut Connection,
+) -> *mut h3::webtransport::ClientSession {
+    match h3::webtransport::ClientSession::with_transport(quic_conn){
+        Ok(c) => Box::into_raw(Box::new(c)),
+
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_free(c: *mut h3::webtransport::ClientSession) {
+    unsafe { Box::from_raw(c) };
+}
+
+// #[no_mangle]
+// pub extern fn quiche_h3_webtransport_clientsession_is_connected(session: *mut h3::webtransport::ClientSession) -> bool {
+//     return session.is_connected();
+// }
+
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_send_connect_request( session: &mut h3::webtransport::ClientSession,
+    quic_conn: &mut Connection,
+    request: &mut ConnectRequest,
+) {
+
+    let mut authority: &[u8] = &[];
+    if !request.authority.is_null() {
+        let len = unsafe { libc::strlen(request.authority as *const libc::c_char) } as usize;
+        authority = unsafe { slice::from_raw_parts(request.authority, len) };    
+    } 
+
+    let mut path: &[u8] = &[];
+    if !request.path.is_null() {
+        let len = unsafe { libc::strlen(request.path as *const libc::c_char) } as usize;
+        path = unsafe { slice::from_raw_parts(request.path, len) };
+    }
+
+    let mut origin: &[u8] = &[];
+    if !request.origin.is_null() {
+        let len = unsafe { libc::strlen(request.origin as *const libc::c_char) } as usize;
+        origin = unsafe { slice::from_raw_parts(request.origin, len) };
+    }
+
+    match session.send_connect_request(quic_conn, authority, path, origin,  None) {
+        Ok(_) => (),
+        Err(_) => (),
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_send_stream_data( session: &mut h3::webtransport::ClientSession,
+                                                            quic_conn: &mut Connection,
+                                                            stream_id: u64, buf: *mut u8, buf_len: size_t,
+) -> ssize_t {
+
+    if buf_len > <ssize_t>::max_value() as usize {
+        panic!("The provided buffer is too large");
+    }
+
+    let out = unsafe { slice::from_raw_parts_mut(buf, buf_len) };
+
+    let out_len = match session.send_stream_data(quic_conn, stream_id, out) {
+        Ok(v) => v ,
+        Err(e) => return e.to_c(),
+    };
+
+    out_len as ssize_t
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_recv_stream_data( session: &mut h3::webtransport::ClientSession,
+                                                               quic_conn: &mut Connection,
+                                                               stream_id: u64, out: *mut u8, out_len: size_t,
+) -> i64 {
+    let out = unsafe { slice::from_raw_parts_mut(out, out_len) };
+
+    match session.recv_stream_data(quic_conn, stream_id, out) {
+        Ok(v) => v as i64,
+        Err(e) => return e.to_c() as i64,
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_open_stream( session: &mut h3::webtransport::ClientSession,
+                                                               quic_conn: &mut Connection,
+                                                               is_bidi: bool,
+) -> i64 {
+    match session.open_stream(quic_conn, is_bidi) {
+        Ok(v) => v as i64,
+        Err(e) => return e.to_c() as i64,
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_recv_dgram( session: &mut h3::webtransport::ClientSession,
+                                                 quic_conn: &mut Connection,
+                                                 out: *mut u8, out_len: size_t,
+                                                 in_session: *mut bool, offset: *mut ssize_t,
+) -> ssize_t {
+    if out_len > <ssize_t>::max_value() as usize {
+        panic!("The provided buffer is too large");
+    }
+
+    let out = unsafe { slice::from_raw_parts_mut(out, out_len) };
+
+    match session.recv_dgram(quic_conn, out) {
+        Ok((in_session_resp, offset_resp, total_resp)) => {
+            unsafe { *in_session = in_session_resp };
+            unsafe { *offset = offset_resp as ssize_t };
+            total_resp as ssize_t
+        },
+
+        Err(e) => e.to_c(),
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_send_dgram( session: &mut h3::webtransport::ClientSession,
+                                                 quic_conn: &mut Connection,
+                                                 out: *mut u8, out_len: size_t,
+) {
+    if out_len > <ssize_t>::max_value() as usize {
+        panic!("The provided buffer is too large");
+    }
+
+    let out = unsafe { slice::from_raw_parts_mut(out, out_len) };
+
+    match session.send_dgram(quic_conn, out) {
+        Ok(_) => (),
+        Err(_) => (),
+    }
+}
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsession_poll( session: &mut h3::webtransport::ClientSession,
+                                                         quic_conn: &mut Connection,
+                                                         ev: *mut *const h3::webtransport::ClientEvent,
+) -> i64 {
+    match session.poll(quic_conn) {
+        Ok(v) => {
+            unsafe {
+                *ev = Box::into_raw(Box::new(v));
+            }
+            return 0;
+        },
+
+        Err(e) => e.to_c() as i64,
+    }
+}
+
+// #[no_mangle]
+// pub extern fn quiche_h3_webtransport_clientevent_type(ev: &h3::webtransport::ClientEvent,
+//                                                        stream_id:  *mut u64) -> u32 {
+
+//     match ev {
+
+//         h3::webtransport::ClientEvent::StreamData(streamid) => {
+//             unsafe { *stream_id = streamid.clone()};
+//             return 1;
+//         },
+
+//         h3::webtransport::ClientEvent::StreamFinished(streamid) => {
+//             unsafe { *stream_id = streamid.clone()};
+//             return 2;
+//         },
+
+//         h3::webtransport::ClientEvent::Datagram { .. } => 3,
+//         h3::webtransport::ClientEvent::SessionFinished { .. } => 4,
+
+//         h3::webtransport::ClientEvent::SessionReset(streamid) => {
+//             unsafe { *stream_id = streamid.clone()};
+//             return 5;
+//         },
+
+//         h3::webtransport::ClientEvent::SessionGoAway { .. } => 6,
+//         h3::webtransport::ClientEvent::Other { .. } => 7,
+//     }
+// }
+
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientsevent_free(ev: *mut h3::webtransport::ClientEvent) {
+    unsafe { Box::from_raw(ev) };
+}
