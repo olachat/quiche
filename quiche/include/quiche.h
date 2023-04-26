@@ -1098,12 +1098,6 @@ enum quiche_h3_webtransport_clientevent_type {
     QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_OTHER,
 };
 
-typedef struct {
-    char* authority;
-    char* path;
-    char* origin;
-} connection_request;
-
 typedef struct ClientEvent quiche_h3_webtransport_clientevent_event;
 
 int64_t quiche_h3_webtransport_clientsession_poll( client_session *session,
@@ -1112,7 +1106,7 @@ int64_t quiche_h3_webtransport_clientsession_poll( client_session *session,
 
 
 // Returns the type of the event.
-int quiche_h3_webtransport_clientevent_event(quiche_h3_webtransport_serverevent_event *ev, uint64_t *, connection_request *);
+int quiche_h3_webtransport_clientevent_event2(quiche_h3_webtransport_serverevent_event *ev, uint64_t *, connection_request *);
 
 
 
