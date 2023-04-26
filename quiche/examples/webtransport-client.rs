@@ -29,13 +29,17 @@ extern crate log;
 
 use std::net::ToSocketAddrs;
 
-use quiche::h3::{webtransport::ClientSession, NameValue};
+use quiche::h3::NameValue;
 
+use env_logger::Env;
 use ring::rand::*;
 
 const MAX_DATAGRAM_SIZE: usize = 1350;
 
 fn main() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug"))
+        .init();
+
     let mut buf = [0; 65535];
     let mut out = [0; MAX_DATAGRAM_SIZE];
 
@@ -56,7 +60,8 @@ fn main() {
     let mut events = mio::Events::with_capacity(1024);
 
     // Resolve server address.
-    let peer_addr = url.to_socket_addrs().unwrap().next().unwrap();
+    let peer_addr: std::net::SocketAddr =
+        url.to_socket_addrs().unwrap().next().unwrap();
 
     // Bind to INADDR_ANY or IN6ADDR_ANY depending on the IP family of the
     // server address. This is needed on macOS and BSD variants that don't
@@ -94,9 +99,9 @@ fn main() {
     config.set_initial_max_streams_bidi(100);
     config.set_initial_max_streams_uni(100);
     config.set_disable_active_migration(true);
-    config.enable_dgram(true, 3, 3);
+    config.enable_dgram(true, 65536, 65536);
 
-    let mut client_session = None;
+    let mut http3_conn = None;
 
     // Generate a random source connection ID for the connection.
     let mut scid = [0; quiche::MAX_CONN_ID_LEN];
@@ -132,17 +137,28 @@ fn main() {
 
     debug!("written {}", write);
 
-    let mut h3_config = quiche::h3::Config::new().unwrap();
-    h3_config.set_enable_webtransport(true);
-
     // Prepare request.
     let mut path = String::from(url.path());
-    let authority = url.host_str().unwrap().as_bytes();
 
     if let Some(query) = url.query() {
         path.push('?');
         path.push_str(query);
     }
+
+    let req = vec![
+        quiche::h3::Header::new(b":method", b"CONNECT"),
+        quiche::h3::Header::new(b":scheme", url.scheme().as_bytes()),
+        quiche::h3::Header::new(
+            b":authority",
+            url.host_str().unwrap().as_bytes(),
+        ),
+        quiche::h3::Header::new(b":protocol", b"webtransport"),
+        quiche::h3::Header::new(b"origin", url.host_str().unwrap().as_bytes()),
+        quiche::h3::Header::new(b":path", path.as_bytes()),
+        quiche::h3::Header::new(b"user-agent", b"quiche"),
+    ];
+
+    let mut req_sent = false;
 
     loop {
         poll.poll(&mut events, conn.timeout()).unwrap();
@@ -203,57 +219,97 @@ fn main() {
             break;
         }
 
-        // Create a new HTTP/3 connection once the QUIC connection is established.
-        if conn.is_established() && client_session.is_none() {
-            client_session = Some(
-                ClientSession::with_transport(&mut conn)
-                    .expect("unable to create client session"),
+        // Create a new Webtransport connection once the QUIC connection is established.
+        if conn.is_established() && http3_conn.is_none() {
+            http3_conn = Some(
+                quiche::h3::webtransport::ClientSession::with_transport(&mut conn)
+                .expect("Unable to create HTTP/3 connection, check the server's uni stream limit and window size"),
             );
         }
 
-        if let Some(client_session) = &mut client_session {
-            // Process WebTrasnport events.
+        // Send HTTP requests once the QUIC connection is established, and until
+        // all requests have been sent.
+        if let Some(h3_conn) = &mut http3_conn {
+            if !req_sent {
+                info!("sending HTTP request {:?}", req);
+
+                h3_conn.send_connect_request(
+                    &mut conn,
+                    b"authority.quic.tech:1234",
+                    b"/path",
+                    b"origin.quic.tech",
+                    None,
+                );
+
+                req_sent = true;
+            }
+        }
+
+        if let Some(http3_conn) = &mut http3_conn {
+            // Process HTTP/3 events.
             loop {
-                match client_session.poll(&mut conn) {
+                match http3_conn.poll(&mut conn) {
                     Ok(quiche::h3::webtransport::ClientEvent::PeerReady) => {
                         // This event is issued when a SETTINGS frame from the server is received and
                         // it detects that WebTransport is enabled.
-                        match client_session.send_connect_request(
+                        http3_conn.send_connect_request(
                             &mut conn,
-                            authority,
-                            path.as_bytes(),
-                            authority,
+                            b"authority.quic.tech:1234",
+                            b"/path",
+                            b"origin.quic.tech",
                             None,
-                        ){
-                            Ok(stream_id) => stream_id,
-                            Err(_) => 0,
-                        };
+                        );
+
+                        debug!("webtransport peer ready");
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Connected) => {
                         // receive response from server for CONNECT request,
                         // and it indicates server accepted it.
                         // you can start to send any data through Stream or send Datagram
+
+                        debug!("webtransport connnected");
+                        let mut data_to_be_sent = "hello world!!".as_bytes();
+
+                        let bidi_stream_id =
+                            http3_conn.open_stream(&mut conn, true).unwrap();
+                        http3_conn.send_stream_data(
+                            &mut conn,
+                            bidi_stream_id,
+                            &data_to_be_sent,
+                        );
+
+                        let uni_stream_id =
+                            http3_conn.open_stream(&mut conn, false).unwrap();
+                        http3_conn.send_stream_data(
+                            &mut conn,
+                            uni_stream_id,
+                            &data_to_be_sent,
+                        );
+
+                        http3_conn.send_dgram(&mut conn, &data_to_be_sent);
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Rejected(code)) => {
                         // receive response from server for CONNECT request,
                         // and it indicates server rejected it.
                         // you may want to close session.
+                        debug!("webtransport peer rejected :{}", code);
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::StreamData(
                         stream_id,
                     )) => {
                         let mut buf = vec![0; 10000];
-                        while let Ok(len) = client_session
+                        while let Ok(len) = http3_conn
                             .recv_stream_data(&mut conn, stream_id, &mut buf)
                         {
                             let stream_data = &buf[0..len];
+                            debug!("stream data :{}", stream_data.is_ascii());
                             //handle_stream_data(stream_data);
                         }
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Datagram) => {
                         let mut buf = vec![0; 1500];
                         while let Ok((in_session, offset, total)) =
-                            client_session.recv_dgram(&mut conn, &mut buf)
+                            http3_conn.recv_dgram(&mut conn, &mut buf)
                         {
                             if in_session {
                                 let dgram = &buf[offset..total];
@@ -289,8 +345,13 @@ fn main() {
                     )) => {
                         // Original h3::Event which is not related to WebTransport.
                     },
-                    Err(quiche::h3::webtransport::Error::Done) => break,
-                    Err(e) => break,
+                    Err(quiche::h3::webtransport::Error::Done) => {
+                        break;
+                    },
+                    Err(e) => {
+                        error!("webtransport error {}", e);
+                        break;
+                    },
                 }
             }
         }
