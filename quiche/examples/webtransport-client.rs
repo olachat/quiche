@@ -145,7 +145,7 @@ fn main() {
         path.push_str(query);
     }
 
-    let req = vec![
+    let req: Vec<quiche::h3::Header> = vec![
         quiche::h3::Header::new(b":method", b"CONNECT"),
         quiche::h3::Header::new(b":scheme", url.scheme().as_bytes()),
         quiche::h3::Header::new(

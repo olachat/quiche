@@ -1114,6 +1114,90 @@ int quiche_h3_webtransport_clientevent_event2(quiche_h3_webtransport_serverevent
 void quiche_h3_webtransport_serverevent_event_free(quiche_h3_webtransport_serverevent_event *ev);
 
 
+
+/**
+ * Opaque type representing a WebTransport client instance.
+ */
+typedef struct WebTransportClient WebTransportClient;
+
+/**
+ * Callback function type for handling received data.
+ *
+ * @param data Pointer to the received data.
+ * @param len Length of the received data.
+ */
+typedef void (*WebTransportDataReceivedCallback)(const char* data, size_t len);
+
+/**
+ * Callback function type for handling the client being closed.
+ */
+typedef void (*WebTransportCloseCallback)(void);
+
+/**
+ * Creates a new WebTransport client instance.
+ *
+ * @return Pointer to the newly created WebTransport client instance, or NULL on failure.
+ */
+WebTransportClient* webtransport_client_new(void);
+
+/**
+ * Frees a WebTransport client instance.
+ *
+ * @param client Pointer to the WebTransport client instance to free.
+ */
+void webtransport_client_free(WebTransportClient* client);
+
+/**
+ * Connects to a WebTransport server.
+ *
+ * @param client Pointer to the WebTransport client instance to use for the connection.
+ * @param server_addr String representing the server address to connect to, in the format "host:port".
+ * @return 0 on success, or a negative value on failure.
+ */
+int webtransport_client_connect(WebTransportClient* client, const char* server_addr);
+
+/**
+ * Sends data to the WebTransport server.
+ *
+ * @param client Pointer to the WebTransport client instance to use for the connection.
+ * @param data Pointer to the data to send.
+ * @param len Length of the data to send.
+ * @return Number of bytes sent, or a negative value on failure.
+ */
+ssize_t webtransport_client_send_data(WebTransportClient* client, const char* data, size_t len);
+
+/**
+ * Sets the callback function to handle received data.
+ *
+ * @param client Pointer to the WebTransport client instance.
+ * @param callback Pointer to the callback function to use for handling received data.
+ */
+void webtransport_client_set_data_received_callback(WebTransportClient* client, WebTransportDataReceivedCallback callback);
+
+/**
+ * Sets the callback function to handle the client being closed.
+ *
+ * @param client Pointer to the WebTransport client instance.
+ * @param callback Pointer to the callback function to use for handling the client being closed.
+ */
+void webtransport_client_set_close_callback(WebTransportClient* client, WebTransportCloseCallback callback);
+
+/**
+ * Runs the WebTransport client event loop.
+ *
+ * @param client Pointer to the WebTransport client instance to run the event loop for.
+ * @return 0 on success, or a negative value on failure.
+ */
+int webtransport_client_run_event_loop(WebTransportClient* client);
+
+/**
+ * Stops the WebTransport client event loop.
+ *
+ * @param client Pointer to the WebTransport client instance to stop the event loop for.
+ */
+void webtransport_client_stop_event_loop(WebTransportClient* client);
+
+
 #if defined(__cplusplus)
 }  // extern C
 #endif

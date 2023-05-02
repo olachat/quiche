@@ -804,3 +804,67 @@ pub extern fn quiche_h3_webtransport_clientsession_poll( session: &mut h3::webtr
 pub extern fn quiche_h3_webtransport_clientsevent_free(ev: *mut h3::webtransport::ClientEvent) {
     unsafe { Box::from_raw(ev) };
 }
+
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_new() -> *mut WebTransportClient {
+    let client = Box::new(WebTransportClient { _private: [] });
+    Box::into_raw(client)
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_connect(client: *mut WebTransportClient, url: *const c_char) -> c_int {
+    // Convert the URL to a Rust string.
+    let url_str = unsafe { CStr::from_ptr(url) }.to_str().unwrap();
+    let url = match url_str.parse() {
+        Ok(url) => url,
+        Err(_) => return -1,
+    };
+
+    // Connect the client to the server.
+    let client = unsafe { &mut *client };
+    if let Ok(conn) = quiche::connect(None, &url, "example.com", &mut config) {
+        client.conn = Some(conn);
+        0
+    } else {
+        -1
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_close(client: *mut WebTransportClient) -> c_int {
+    // Close the connection.
+    let client = unsafe { &mut *client };
+    client.conn.as_mut().unwrap().close(false, 0x00, b"");
+    0
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_send_data(client: *mut WebTransportClient, data: *const c_uchar, len: usize) -> c_int {
+    // TODO: Implement sending data.
+    unimplemented!()
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_set_receive_data_callback(client: *mut WebTransportClient, callback: extern "C" fn(*mut c_uchar, usize)) {
+    // TODO: Implement setting the receive data callback.
+    unimplemented!()
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_set_data_received_callback(client: *mut WebTransportClient, callback: extern "C" fn(*mut c_uchar, usize)) {
+    // TODO: Implement setting the data received callback.
+    unimplemented!()
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_run_event_loop(client: *mut WebTransportClient) -> c_int {
+    // TODO: Implement running the event loop.
+    unimplemented!()
+}
+
+#[no_mangle]
+pub extern "C" fn webtransport_client_free(client: *mut WebTransportClient) {
+    // Deallocate the client.
+    unsafe { Box::from_raw(client) };
+}
