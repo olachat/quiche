@@ -469,7 +469,7 @@ pub extern fn quiche_h3_webtransport_serversession_recv_stream_data( session: &m
 
     let out_len = match session.recv_stream_data(conn, stream_id, out) {
         Ok(v) => v,
-        Err(e) => return e.to_c(),
+        Err(_) => 0,
     };
 
     out_len as ssize_t
@@ -480,16 +480,16 @@ pub extern fn quiche_h3_webtransport_serversession_send_stream_data( session: &m
                                                             quic_conn: &mut Connection,
                                                             stream_id: u64, out: *mut u8, out_len: size_t,
 ) -> ssize_t {
-
+    
     if out_len > <ssize_t>::max_value() as usize {
-        panic!("The provided buffer is too large");
+        panic!("The provided buffer is too large, out_len: {}, max:{}", out_len, <ssize_t>::max_value());
     }
 
     let out = unsafe { slice::from_raw_parts_mut(out, out_len) };
 
     let out_len = match session.send_stream_data(quic_conn, stream_id, out) {
         Ok(v) => v ,
-        Err(e) => return e.to_c(),
+        Err(_) => 0,
     };
 
     out_len as ssize_t
@@ -699,7 +699,7 @@ pub extern fn quiche_h3_webtransport_clientsession_recv_stream_data( session: &m
 
     match session.recv_stream_data(quic_conn, stream_id, out) {
         Ok(v) => v as i64,
-        Err(e) => return e.to_c() as i64,
+        Err(_) => 0,
     }
 }
 
@@ -710,7 +710,7 @@ pub extern fn quiche_h3_webtransport_clientsession_open_stream( session: &mut h3
 ) -> i64 {
     match session.open_stream(quic_conn, is_bidi) {
         Ok(v) => v as i64,
-        Err(e) => return e.to_c() as i64,
+        Err(_) => 0,
     }
 }
 
@@ -733,7 +733,7 @@ pub extern fn quiche_h3_webtransport_clientsession_recv_dgram( session: &mut h3:
             total_resp as ssize_t
         },
 
-        Err(e) => e.to_c(),
+        Err(_) => 0,
     }
 }
 

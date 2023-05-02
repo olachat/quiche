@@ -278,15 +278,15 @@ fn main() {
                             &data_to_be_sent,
                         );
 
-                        let uni_stream_id =
-                            http3_conn.open_stream(&mut conn, false).unwrap();
-                        http3_conn.send_stream_data(
-                            &mut conn,
-                            uni_stream_id,
-                            &data_to_be_sent,
-                        );
+                        // let uni_stream_id =
+                        //     http3_conn.open_stream(&mut conn, false).unwrap();
+                        // http3_conn.send_stream_data(
+                        //     &mut conn,
+                        //     uni_stream_id,
+                        //     &data_to_be_sent,
+                        // );
 
-                        http3_conn.send_dgram(&mut conn, &data_to_be_sent);
+                        // http3_conn.send_dgram(&mut conn, &data_to_be_sent);
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Rejected(code)) => {
                         // receive response from server for CONNECT request,
@@ -297,14 +297,17 @@ fn main() {
                     Ok(quiche::h3::webtransport::ClientEvent::StreamData(
                         stream_id,
                     )) => {
+                        debug!("webtransport stream data on id :{}", stream_id);
+
                         let mut buf = vec![0; 10000];
                         while let Ok(len) = http3_conn
                             .recv_stream_data(&mut conn, stream_id, &mut buf)
                         {
                             let stream_data = &buf[0..len];
-                            debug!("stream data :{}", stream_data.is_ascii());
+                            debug!("stream data :{}", String::from_utf8_lossy(stream_data).to_string());
                             //handle_stream_data(stream_data);
                         }
+                        
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Datagram) => {
                         let mut buf = vec![0; 1500];
@@ -314,6 +317,7 @@ fn main() {
                             if in_session {
                                 let dgram = &buf[offset..total];
                                 // handle_dgram(dgram);
+                                debug!("handle_dgram :{}", String::from_utf8_lossy(dgram).to_string());
                             } else {
                                 // this dgram is not related to current WebTransport session. ignore.
                             }
