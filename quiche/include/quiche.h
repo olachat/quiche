@@ -998,7 +998,7 @@ quiche_wt_server_session *quiche_h3_webtransport_serversession_with_transport(qu
 
 void quiche_h3_webtransport_serversession_free(quiche_wt_server_session *session);
 
-void quiche_h3_webtransport_serversession_accept_connect_request(quiche_wt_server_session *session);
+void quiche_h3_webtransport_serversession_accept_connect_request(quiche_wt_server_session *session, quiche_conn *conn);
 
 ssize_t quiche_h3_webtransport_serversession_recv_stream_data( quiche_wt_server_session *session,
                                                                quiche_conn *conn,
