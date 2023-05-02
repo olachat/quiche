@@ -145,21 +145,6 @@ fn main() {
         path.push_str(query);
     }
 
-    let req = vec![
-        quiche::h3::Header::new(b":method", b"CONNECT"),
-        quiche::h3::Header::new(b":scheme", url.scheme().as_bytes()),
-        quiche::h3::Header::new(
-            b":authority",
-            url.host_str().unwrap().as_bytes(),
-        ),
-        quiche::h3::Header::new(b":protocol", b"webtransport"),
-        quiche::h3::Header::new(b"origin", url.host_str().unwrap().as_bytes()),
-        quiche::h3::Header::new(b":path", path.as_bytes()),
-        quiche::h3::Header::new(b"user-agent", b"quiche"),
-    ];
-
-    let mut req_sent = false;
-
     loop {
         poll.poll(&mut events, conn.timeout()).unwrap();
 
@@ -227,24 +212,6 @@ fn main() {
             );
         }
 
-        // Send HTTP requests once the QUIC connection is established, and until
-        // all requests have been sent.
-        if let Some(h3_conn) = &mut http3_conn {
-            if !req_sent {
-                info!("sending HTTP request {:?}", req);
-
-                h3_conn.send_connect_request(
-                    &mut conn,
-                    b"authority.quic.tech:1234",
-                    b"/path",
-                    b"origin.quic.tech",
-                    None,
-                );
-
-                req_sent = true;
-            }
-        }
-
         if let Some(http3_conn) = &mut http3_conn {
             // Process HTTP/3 events.
             loop {
@@ -258,7 +225,7 @@ fn main() {
                             b"/path",
                             b"origin.quic.tech",
                             None,
-                        );
+                        ).unwrap();
 
                         debug!("webtransport peer ready");
                     },
@@ -268,7 +235,7 @@ fn main() {
                         // you can start to send any data through Stream or send Datagram
 
                         debug!("webtransport connnected");
-                        let mut data_to_be_sent = "hello world!!".as_bytes();
+                        let data_to_be_sent = "hello world!!".as_bytes();
 
                         let bidi_stream_id =
                             http3_conn.open_stream(&mut conn, true).unwrap();
@@ -276,17 +243,17 @@ fn main() {
                             &mut conn,
                             bidi_stream_id,
                             &data_to_be_sent,
-                        );
+                        ).unwrap();
 
-                        let uni_stream_id =
-                            http3_conn.open_stream(&mut conn, false).unwrap();
-                        http3_conn.send_stream_data(
-                            &mut conn,
-                            uni_stream_id,
-                            &data_to_be_sent,
-                        );
+                        // let uni_stream_id =
+                        //     http3_conn.open_stream(&mut conn, false).unwrap();
+                        // http3_conn.send_stream_data(
+                        //     &mut conn,
+                        //     uni_stream_id,
+                        //     &data_to_be_sent,
+                        // );
 
-                        http3_conn.send_dgram(&mut conn, &data_to_be_sent);
+                        // http3_conn.send_dgram(&mut conn, &data_to_be_sent);
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Rejected(code)) => {
                         // receive response from server for CONNECT request,
@@ -297,14 +264,17 @@ fn main() {
                     Ok(quiche::h3::webtransport::ClientEvent::StreamData(
                         stream_id,
                     )) => {
+                        debug!("webtransport stream data on id :{}", stream_id);
+
                         let mut buf = vec![0; 10000];
                         while let Ok(len) = http3_conn
                             .recv_stream_data(&mut conn, stream_id, &mut buf)
                         {
                             let stream_data = &buf[0..len];
-                            debug!("stream data :{}", stream_data.is_ascii());
+                            debug!("stream data :{}", String::from_utf8_lossy(stream_data).to_string());
                             //handle_stream_data(stream_data);
                         }
+                        
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::Datagram) => {
                         let mut buf = vec![0; 1500];
@@ -314,6 +284,7 @@ fn main() {
                             if in_session {
                                 let dgram = &buf[offset..total];
                                 // handle_dgram(dgram);
+                                debug!("handle_dgram :{}", String::from_utf8_lossy(dgram).to_string());
                             } else {
                                 // this dgram is not related to current WebTransport session. ignore.
                             }
@@ -325,6 +296,7 @@ fn main() {
                         ),
                     ) => {
                         // A WebTrnasport stream finished, handle it.
+                        debug!("webtransport::StreamFinished:{} ", stream_id);
                     },
                     Ok(
                         quiche::h3::webtransport::ClientEvent::SessionFinished,
@@ -335,6 +307,8 @@ fn main() {
                         e,
                     )) => {
                         // Peer reset session stream, handle it.
+                        debug!("webtransport::SessionReset:{} ", e);
+
                     },
                     Ok(quiche::h3::webtransport::ClientEvent::SessionGoAway) => {
                         // Peer signalled it is going away, handle it.
@@ -344,6 +318,7 @@ fn main() {
                         event,
                     )) => {
                         // Original h3::Event which is not related to WebTransport.
+                        debug!("webtransport::ClientEvent: stream:{}  event: {:?}", stream_id, event);
                     },
                     Err(quiche::h3::webtransport::Error::Done) => {
                         break;
