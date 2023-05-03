@@ -771,34 +771,38 @@ pub extern fn quiche_h3_webtransport_clientsession_poll( session: &mut h3::webtr
     }
 }
 
-// #[no_mangle]
-// pub extern fn quiche_h3_webtransport_clientevent_type(ev: &h3::webtransport::ClientEvent,
-//                                                        stream_id:  *mut u64) -> u32 {
+#[no_mangle]
+pub extern fn quiche_h3_webtransport_clientevent_event(ev: &h3::webtransport::ClientEvent,
+                                                       stream_id:  *mut u64) -> u32 {
 
-//     match ev {
+    match ev {
 
-//         h3::webtransport::ClientEvent::StreamData(streamid) => {
-//             unsafe { *stream_id = streamid.clone()};
-//             return 1;
-//         },
+        h3::webtransport::ClientEvent::PeerReady { .. } => 1,
+        h3::webtransport::ClientEvent::Connected { .. } => 2,
+        h3::webtransport::ClientEvent::Rejected { .. } => 3,
 
-//         h3::webtransport::ClientEvent::StreamFinished(streamid) => {
-//             unsafe { *stream_id = streamid.clone()};
-//             return 2;
-//         },
+        h3::webtransport::ClientEvent::StreamData(streamid) => {
+            unsafe { *stream_id = streamid.clone()};
+            return 4;
+        },
 
-//         h3::webtransport::ClientEvent::Datagram { .. } => 3,
-//         h3::webtransport::ClientEvent::SessionFinished { .. } => 4,
+        h3::webtransport::ClientEvent::StreamFinished(streamid) => {
+            unsafe { *stream_id = streamid.clone()};
+            return 5;
+        },
 
-//         h3::webtransport::ClientEvent::SessionReset(streamid) => {
-//             unsafe { *stream_id = streamid.clone()};
-//             return 5;
-//         },
+        h3::webtransport::ClientEvent::Datagram { .. } => 6,
+        h3::webtransport::ClientEvent::SessionFinished { .. } => 7,
 
-//         h3::webtransport::ClientEvent::SessionGoAway { .. } => 6,
-//         h3::webtransport::ClientEvent::Other { .. } => 7,
-//     }
-// }
+        h3::webtransport::ClientEvent::SessionReset(streamid) => {
+            unsafe { *stream_id = streamid.clone()};
+            return 8;
+        },
+
+        h3::webtransport::ClientEvent::SessionGoAway { .. } => 9,
+        h3::webtransport::ClientEvent::Other { .. } => 10,
+    }
+}
 
 #[no_mangle]
 pub extern fn quiche_h3_webtransport_clientsevent_free(ev: *mut h3::webtransport::ClientEvent) {
