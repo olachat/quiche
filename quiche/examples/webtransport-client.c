@@ -355,6 +355,7 @@ int main(int argc, char *argv[]) {
     quiche_config_set_initial_max_streams_bidi(config, 100);
     quiche_config_set_initial_max_streams_uni(config, 100);
     quiche_config_set_disable_active_migration(config, true);
+    quiche_config_enable_dgram(config, true, 65536, 65536);
 
     if (getenv("SSLKEYLOGFILE")) {
       quiche_config_log_keys(config);
