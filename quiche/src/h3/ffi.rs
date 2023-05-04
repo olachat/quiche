@@ -767,7 +767,10 @@ pub extern fn quiche_h3_webtransport_clientsession_poll( session: &mut h3::webtr
             return 0;
         },
 
-        Err(e) => e.to_c() as i64,
+        Err(e) => {
+            debug!("quiche_h3_webtransport_clientsession_poll error {:?}", e);
+            e.to_c() as i64
+        },
     }
 }
 
