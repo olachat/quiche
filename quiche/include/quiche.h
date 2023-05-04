@@ -1062,7 +1062,7 @@ client_session *quiche_h3_webtransport_clientsession_with_transport(quiche_conn 
 
 void quiche_h3_webtransport_clientsession_free(client_session *session);
 
-void quiche_h3_webtransport_clientsession_send_connect_request(client_session *session);
+void quiche_h3_webtransport_clientsession_send_connect_request(client_session *session, quiche_conn *conn, connection_request *req);
 
 ssize_t quiche_h3_webtransport_clientsession_recv_stream_data( client_session *session,
                                                                quiche_conn *conn,

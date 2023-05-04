@@ -104,6 +104,7 @@ static void flush_egress(struct ev_loop *loop, struct conn_io *conn_io) {
 
 
 static void recv_cb(EV_P_ ev_io *w, int revents) {
+    static bool connect_request_sent = false;
 
     struct conn_io *conn_io = w->data;
 
@@ -170,32 +171,48 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
             fprintf(stderr, "failed to create WebTransport Session\n");
             return;
         }
+
+        if(!connect_request_sent) {
+            connect_request_sent = true;
+            connection_request request = {
+                .authority = "example.com",
+                .path = "/",
+                .origin = "localhost"
+            };
+            quiche_h3_webtransport_clientsession_send_connect_request(conn_io->client_session, conn_io->conn, &request);
+        }
     }
 
-    if (quiche_conn_is_established(conn_io->conn)) {
+    if (quiche_conn_is_established(conn_io->conn) && conn_io->client_session != NULL) {
         webtransport_clientevent_event *ev;
 
         while (1) {
-            int64_t s = quiche_h3_webtransport_clientsession_poll(conn_io->client_session,
+            int64_t ret = quiche_h3_webtransport_clientsession_poll(conn_io->client_session,
                                             conn_io->conn,
                                             &ev);
-
-            if (s < 0) {
+            if(ret != 0) {
                 break;
             }
+
             uint64_t sid = 0;
+            int rc = quiche_h3_webtransport_clientevent_event(ev, &sid);
+            fprintf(stderr, "quiche_h3_webtransport_clientevent_event  %d\n", rc);
 
-
-            switch (quiche_h3_webtransport_clientevent_event(ev, &sid)) {
+            switch (rc) {
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_PEER_READY: {
-                    quiche_h3_webtransport_clientsession_send_connect_request(conn_io->client_session);
+                    // connection_request request = {
+                    //     .authority = "example.com",
+                    //     .path = "/",
+                    //     .origin = "localhost"
+                    // };
+                    // quiche_h3_webtransport_clientsession_send_connect_request(conn_io->client_session, conn_io->conn, &request);
                     
-                    fprintf(stdout, "peer ready\n");
+                    fprintf(stderr, "peer ready\n");
                     break;
                 }
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_CONNECTED: {
                     
-                    fprintf(stdout, "connected\n");
+                    fprintf(stderr, "webtransport connected\n");
 
                     int stream_id = quiche_h3_webtransport_clientsession_open_stream(conn_io->client_session,conn_io->conn, true);
                     if (stream_id < 0) {
@@ -210,7 +227,7 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
                 }
                
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_STREAMFINISHED: {
-                    fprintf(stdout, "stream finished\n");
+                    fprintf(stderr, "webtransport stream finished\n");
                     break;
                 }
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_DATAGRAM: {
@@ -227,7 +244,7 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
                         }
 
                         if(in_session) {
-                            printf("%.*s", (int) len, buf);
+                            printf("webtransport datagram: %.*s", (int) len, buf);
                         }
                         
                     }
@@ -245,7 +262,7 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
                             break;
                         }
 
-                        printf("%.*s", (int) len, buf);
+                        printf("webtransport stream data: %.*s", (int) len, buf);
                         
                         
                     }
@@ -253,25 +270,25 @@ static void recv_cb(EV_P_ ev_io *w, int revents) {
                 }
 
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONFINISHED:
-                    if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
-                        fprintf(stderr, "failed to close connection\n");
-                    }
+                    // if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
+                    //     fprintf(stderr, "failed to close connection\n");
+                    // }
                     break;
 
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONRESET:
                     fprintf(stdout, "request was reset\n");
 
-                    if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
-                        fprintf(stderr, "failed to close connection\n");
-                    }
+                    // if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
+                    //     fprintf(stderr, "failed to close connection\n");
+                    // }
                     break;
 
                 case QUICHE_H3_WEBTRANSPORT_CLIENTEVENT_SESSIONGOAWAY: {
                     fprintf(stdout, "got GOAWAY\n");
 
-                    if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
-                        fprintf(stderr, "failed to close connection\n");
-                    }
+                    // if (quiche_conn_close(conn_io->conn, true, 0, NULL, 0) < 0) {
+                    //     fprintf(stderr, "failed to close connection\n");
+                    // }
                     break;
                 }
             }
@@ -403,6 +420,7 @@ int main(int argc, char *argv[]) {
     conn_io->sock = sock;
     conn_io->conn = conn;
     conn_io->host = host;
+    conn_io->client_session = NULL;
 
     ev_io watcher;
 
@@ -422,9 +440,7 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(peer);
 
     quiche_h3_webtransport_clientsession_free(conn_io->client_session);
-
     quiche_conn_free(conn);
-
     quiche_config_free(config);
 
     return 0;
